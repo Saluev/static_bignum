@@ -586,13 +586,21 @@ struct DecimalRepresentation<BigUnsigned<n, Zero>> {
 template<uint64_t n, class T>
 struct DecimalRepresentation<BigUnsigned<n, T>> {
 private:
-    using D = Division<BigUnsigned<n, T>, BIGUNSIGNED_1(10)>;
+    static const uint64_t modulo = 1000000000ULL * 1000000000ULL;
+    static const uint64_t modulo_log = 18;
+    using D = Division<BigUnsigned<n, T>, BIGUNSIGNED_1(modulo)>;
     using Q = typename D::Quotient;
     using R = typename D::Residue;
-    static_assert(R::digit < 10, "invalid division by 10");
+    static_assert(R::digit < modulo, "invalid division by power of 10");
 public:
-    static inline std::string str(void ){
-        return DecimalRepresentation<Q>::str() + std::to_string(R::digit);
+    static std::string str(void ){
+        std::string tail = DecimalRepresentation<Q>::str();
+        if(tail == "0") tail = "";
+        std::string curr = std::to_string(R::digit);
+        if(tail != "")
+            while(curr.size() < modulo_log)
+                curr = "0" + curr;
+        return tail + curr;
     }
 };
 
