@@ -15,6 +15,7 @@ template<class A> struct DecimalRepresentation;
 struct Zero {
     static const uint64_t digit = 0;
     static const size_t length = 0;
+    using word = uint64_t;
     static inline std::string bin(void) {
         return "";
     }
@@ -32,6 +33,7 @@ struct BigUnsigned {
     static const uint64_t digit = n;
     static const size_t length = T::length + 1;
     using Next = T;
+    using word = uint64_t;
     static inline std::string bin(void) {
         std::bitset<64> bset(n);
         return Next::bin() + bset.to_string();
@@ -657,11 +659,27 @@ private:
         PositiveZero, SignedOne
     >;
 public:
+    // GCD = A * S + B * T
     using GCD = typename Implementation::GCD;
-    using S   = typename std::conditional<
-        swap, typename Implementation::S, typename Implementation::T>::type;
-    using T   = typename std::conditional<
+    using S = typename std::conditional<
         swap, typename Implementation::T, typename Implementation::S>::type;
+    using T = typename std::conditional<
+        swap, typename Implementation::S, typename Implementation::T>::type;
+};
+
+template<uint64_t a_n, uint64_t b_n, class a_T, class b_T>
+struct EuclideanAlgorithm<BigUnsigned<a_n, a_T>, BigUnsigned<b_n, b_T>> {
+    using A = BigUnsigned<a_n, a_T>;
+    using B = BigUnsigned<b_n, b_T>;
+private:
+    using Implementation = EuclideanAlgorithm<
+        typename Signed<A>::Result,
+        typename Signed<B>::Result
+    >;
+public:
+    using GCD = typename Implementation::GCD;
+    using S   = typename Implementation::S;
+    using T   = typename Implementation::T;
 };
 
 };
