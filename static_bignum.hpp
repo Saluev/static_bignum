@@ -22,6 +22,9 @@ struct Zero {
     static inline void write_to(uint64_t* dest) {
         // no op
     }
+    static inline uint64_t get_digit(size_t which) {
+        return 0ULL;
+    }
 };
 
 struct ErrorType {
@@ -44,6 +47,9 @@ struct BigUnsigned {
     static inline void write_to(uint64_t* dest) {
         *dest = n;
         T::write_to(dest + 1);
+    }
+    static inline uint64_t get_digit(size_t which) {
+        return which == 0 ? n : T::get_digit(which - 1);
     }
 };
 
