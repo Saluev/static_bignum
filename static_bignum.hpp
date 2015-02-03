@@ -265,8 +265,8 @@ struct Product<BigUnsigned<a_n, a_T>, BigUnsigned<b_n, b_T> > {
     //       + P      * (a / P) * (b % P)
     using A = BigUnsigned<a_n, a_T>;
     using B = BigUnsigned<b_n, b_T>;
-    using Adiv2 = typename SmallShiftRight<A, 1>::Result;
-    using Bdiv2 = typename SmallShiftRight<B, 1>::Result;
+    using Adiv2 = typename Optimize<typename SmallShiftRight<A, 1>::Result>::Result;
+    using Bdiv2 = typename Optimize<typename SmallShiftRight<B, 1>::Result>::Result;
     using Amod2 = BIGUNSIGNED_1(a_n & 1);
     using Bmod2 = BIGUNSIGNED_1(b_n & 1);
     using Result = typename Sum<
