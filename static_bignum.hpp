@@ -12,18 +12,22 @@ namespace static_bignum {
 // some forward declarations
 template<class A> struct DecimalRepresentation;
 
+using word = uint64_t;
+static const word WORD_MAX = word(-1);
+static const size_t bits_per_word = 8 * sizeof(word);
+
 struct Zero {
-    static const uint64_t digit = 0;
+    static const word digit = 0;
     static const size_t length = 0;
-    using word = uint64_t;
+    using Word = word;
     static inline std::string bin(void) {
         return "";
     }
-    static inline void write_to(uint64_t* dest) {
+    static inline void write_to(word* dest) {
         // no op
     }
-    static inline uint64_t get_digit(size_t which) {
-        return 0ULL;
+    static inline word get_digit(size_t which) {
+        return word(0);
     }
 };
 
@@ -31,24 +35,24 @@ struct ErrorType {
     
 };
 
-template<uint64_t n, class T = Zero>
+template<word n, class T = Zero>
 struct BigUnsigned {
-    static const uint64_t digit = n;
+    static const word digit = n;
     static const size_t length = T::length + 1;
     using Next = T;
-    using word = uint64_t;
+    using Word = word;
     static inline std::string bin(void) {
-        std::bitset<64> bset(n);
+        std::bitset<bits_per_word> bset(n);
         return Next::bin() + bset.to_string();
     }
     static inline std::string dec(void) {
         return DecimalRepresentation<BigUnsigned>::str();
     }
-    static inline void write_to(uint64_t* dest) {
+    static inline void write_to(word* dest) {
         *dest = n;
         T::write_to(dest + 1);
     }
-    static inline uint64_t get_digit(size_t which) {
+    static inline word get_digit(size_t which) {
         return which == 0 ? n : T::get_digit(which - 1);
     }
 };
@@ -67,7 +71,7 @@ struct Optimize<BigUnsigned<0, Zero>> {
     using Result = Zero;
 };
 
-template<uint64_t n, class T>
+template<word n, class T>
 struct Optimize<BigUnsigned<n, T>> {
 private:
     using Tail = typename Optimize<T>::Result;
@@ -93,15 +97,15 @@ template<class A, class B> struct Sum;
 
 template<> struct Sum<Zero, Zero> { using Result = Zero; };
 
-template<uint64_t n, class T>
+template<word n, class T>
 struct Sum<Zero, BigUnsigned<n, T>> { using Result = BigUnsigned<n, T>; };
 
-template<uint64_t n, class T>
+template<word n, class T>
 struct Sum<BigUnsigned<n, T>, Zero> { using Result = BigUnsigned<n, T>; };
 
-template<uint64_t a_n, uint64_t b_n, class a_T, class b_T>
+template<word a_n, word b_n, class a_T, class b_T>
 struct Sum<BigUnsigned<a_n, a_T>, BigUnsigned<b_n, b_T> > {
-    static const uint64_t carry = b_n > UINT64_MAX - a_n ? 1 : 0;
+    static const word carry = b_n > WORD_MAX - a_n ? 1 : 0;
     using Result = BigUnsigned<a_n + b_n, typename Sum<
         typename Sum<a_T, b_T>::Result,
         BIGUNSIGNED_1(carry)
@@ -120,16 +124,16 @@ template<class A, class B> struct Difference;
 
 template<> struct Difference<Zero, Zero> { using Result = Zero; };
 
-template<uint64_t n, class T>
+template<word n, class T>
 struct Difference<BigUnsigned<n, T>, Zero> { using Result = BigUnsigned<n, T>; };
 
-template<uint64_t n, class T>
+template<word n, class T>
 struct Difference<Zero, BigUnsigned<n, T>> { using Result = ErrorType; };
 
 template<class A> struct Difference<ErrorType, A> { using Result = ErrorType; };
 template<class A> struct Difference<A, ErrorType> { using Result = ErrorType; };
 
-template<uint64_t a_n, uint64_t b_n, class a_T, class b_T>
+template<word a_n, word b_n, class a_T, class b_T>
 struct Difference<BigUnsigned<a_n, a_T>, BigUnsigned<b_n, b_T> > {
     using A = BigUnsigned<a_n, a_T>;
     using B = BigUnsigned<b_n, b_T>;
@@ -137,7 +141,7 @@ struct Difference<BigUnsigned<a_n, a_T>, BigUnsigned<b_n, b_T> > {
     using Result_T = typename std::conditional< // deciding whether carry or not
         a_n >= b_n, C, typename Difference<C, One>::Result
     >::type;
-//     static const uint64_t Result_n = // it will be done automatically
+//     static const word Result_n = // it will be done automatically
 //         a_n >= b_n ? (a_n - b_n) : ((UINT64_MAX - b_n) + (a_n + 1));
     using Result = typename std::conditional< // removing trailing zeros // TODO Optimize
         a_n == b_n && std::is_same<Result_T, Zero>::value,
@@ -167,19 +171,19 @@ template<size_t shift> struct BigShiftLeft   <Zero, shift> { using Result = Zero
 template<size_t shift> struct BigShiftRight  <Zero, shift> { using Result = Zero; };
 template<size_t shift> struct SmallShiftLeft <Zero, shift> { using Result = Zero; };
 template<size_t shift> struct SmallShiftRight<Zero, shift> {
-    static const uint64_t carry = 0;
+    static const word carry = 0;
     using Result = Zero;
 };
 
-template<uint64_t n, class T, size_t shift>
+template<word n, class T, size_t shift>
 struct BigShiftLeft<BigUnsigned<n, T>, shift> {
     using Argument = BigUnsigned<n, T>;
     using Result   = BigUnsigned<0ULL, typename BigShiftLeft<Argument, shift-1>::Result>;
 };
-template<uint64_t n, class T, size_t shift>
+template<word n, class T, size_t shift>
 struct SmallShiftLeft<BigUnsigned<n, T>, shift> {
-    static_assert(shift < 64, "shift in SmallShiftLeft must be less than 64 bits");
-    static const uint64_t carry = n >> (64 - shift);
+    static_assert(shift < bits_per_word, "shift in SmallShiftLeft must be less than bits per word");
+    static const word carry = n >> (bits_per_word - shift);
     using Result = BigUnsigned<
         n << shift,
         typename Sum<
@@ -189,51 +193,51 @@ struct SmallShiftLeft<BigUnsigned<n, T>, shift> {
     >;
 };
 
-template<uint64_t n, class T, size_t shift>
+template<word n, class T, size_t shift>
 struct BigShiftRight<BigUnsigned<n, T>, shift> {
     using Argument = BigUnsigned<n, T>;
     using Result   = typename BigShiftRight<T, shift-1>::Result;
 };
-template<uint64_t n, class T, size_t shift>
+template<word n, class T, size_t shift>
 struct SmallShiftRight<BigUnsigned<n, T>, shift> {
-    static_assert(shift < 64, "shift in SmallShiftRight must be less than 64 bits");
-    static const uint64_t carry = n << (64 - shift);
+    static_assert(shift < bits_per_word, "shift in SmallShiftRight must be less than bits per word");
+    static const word carry = n << (bits_per_word - shift);
     using Result = BigUnsigned<
         (n >> shift) | SmallShiftRight<T, shift>::carry,
         typename SmallShiftRight<T, shift>::Result
     >;
 };
 
-template<uint64_t n, class T>
+template<word n, class T>
 struct BigShiftLeft   <BigUnsigned<n, T>, 0> { using Result = BigUnsigned<n, T>; };
-template<uint64_t n, class T>
+template<word n, class T>
 struct BigShiftRight  <BigUnsigned<n, T>, 0> { using Result = BigUnsigned<n, T>; };
-template<uint64_t n, class T>
+template<word n, class T>
 struct SmallShiftLeft <BigUnsigned<n, T>, 0> { using Result = BigUnsigned<n, T>; };
-template<uint64_t n, class T>
+template<word n, class T>
 struct SmallShiftRight<BigUnsigned<n, T>, 0> {
-    static const uint64_t carry = 0;
+    static const word carry = 0;
     using Result = BigUnsigned<n, T>;
 };
 
 template<class A, size_t shift>
 struct ShiftLeft {
     using Result = typename BigShiftLeft<
-        typename SmallShiftLeft<A, shift % 64>::Result, shift / 64
+        typename SmallShiftLeft<A, shift % bits_per_word>::Result, shift / bits_per_word
     >::Result;
 };
 template<size_t shift> struct ShiftLeft<Zero, shift> { using Result = Zero; };
-template<uint64_t n, class T>
+template<word n, class T>
 struct ShiftLeft<BigUnsigned<n, T>, 0> { using Result = BigUnsigned<n, T>; };
 
 template<class A, size_t shift>
 struct ShiftRight {
     using Result = typename SmallShiftRight<
-        typename BigShiftRight<A, shift / 64>::Result, shift % 64
+        typename BigShiftRight<A, shift / bits_per_word>::Result, shift % bits_per_word
     >::Result;
 };
 template<size_t shift> struct ShiftRight<Zero, shift> { using Result = Zero; };
-template<uint64_t n, class T>
+template<word n, class T>
 struct ShiftRight<BigUnsigned<n, T>, 0> { using Result = BigUnsigned<n, T>; };
 
 #ifdef STATIC_BIGNUM_USE_MACRO
@@ -252,12 +256,12 @@ template<> struct Product<Zero, Zero>     { using Result = Zero; };
 template<> struct Product<Zero, One>      { using Result = Zero; };
 template<> struct Product<One, Zero>      { using Result = Zero; };
 template<> struct Product<One, One>       { using Result = One;  };
-template<uint64_t n, class T> struct Product<Zero, BigUnsigned<n, T>> { using Result = Zero; };
-template<uint64_t n, class T> struct Product<BigUnsigned<n, T>, Zero> { using Result = Zero; };
-template<uint64_t n, class T> struct Product<BigUnsigned<n, T>, One>  { using Result = BigUnsigned<n, T>; };
-template<uint64_t n, class T> struct Product<One, BigUnsigned<n, T>>  { using Result = BigUnsigned<n, T>; };
+template<word n, class T> struct Product<Zero, BigUnsigned<n, T>> { using Result = Zero; };
+template<word n, class T> struct Product<BigUnsigned<n, T>, Zero> { using Result = Zero; };
+template<word n, class T> struct Product<BigUnsigned<n, T>, One>  { using Result = BigUnsigned<n, T>; };
+template<word n, class T> struct Product<One, BigUnsigned<n, T>>  { using Result = BigUnsigned<n, T>; };
 
-template<uint64_t a_n, uint64_t b_n, class a_T, class b_T>
+template<word a_n, word b_n, class a_T, class b_T>
 struct Product<BigUnsigned<a_n, a_T>, BigUnsigned<b_n, b_T> > {
     // a * b = P ** 2 * (a / P) * (b / P)
     //       +          (a % P) * (b % P)
@@ -295,24 +299,24 @@ template<class A> struct GreaterThan<Zero, A>          { static const bool value
 template<class A> struct GreaterThanOrEqualTo<Zero, A> { static const bool value = false; };
 template<> struct GreaterThanOrEqualTo<Zero, Zero>     { static const bool value = true;  };
 
-template<uint64_t n, class T>
+template<word n, class T>
 struct GreaterThanOrEqualTo<BigUnsigned<n, T>, Zero> {
     static const bool value = true;
 };
 
-template<uint64_t n, class T>
+template<word n, class T>
 struct GreaterThan<BigUnsigned<n, T>, Zero> {
     static const bool value = n > 0 || GreaterThan<T, Zero>::value;
 };
 
-template<uint64_t a_n, uint64_t b_n, class a_T, class b_T>
+template<word a_n, word b_n, class a_T, class b_T>
 struct GreaterThan<BigUnsigned<a_n, a_T>, BigUnsigned<b_n, b_T>> {
     static const bool value =
         GreaterThan<a_T, b_T>::value ? true :
         (GreaterThanOrEqualTo<a_T, b_T>::value && a_n > b_n);
 };
 
-template<uint64_t a_n, uint64_t b_n, class a_T, class b_T>
+template<word a_n, word b_n, class a_T, class b_T>
 struct GreaterThanOrEqualTo<BigUnsigned<a_n, a_T>, BigUnsigned<b_n, b_T>> {
     static const bool value =
         GreaterThan<a_T, b_T>::value ? true :
@@ -334,27 +338,27 @@ template<class A, class B> struct Min;
 template<> struct Max<Zero, Zero> { using Result = Zero; };
 template<> struct Min<Zero, Zero> { using Result = Zero; };
 
-template<uint64_t n, class T>
+template<word n, class T>
 struct Max<BigUnsigned<n, T>, Zero> {
     using Result = BigUnsigned<n, T>;
 };
 
-template<uint64_t n, class T>
+template<word n, class T>
 struct Max<Zero, BigUnsigned<n, T>> {
     using Result = BigUnsigned<n, T>;
 };
 
-template<uint64_t n, class T>
+template<word n, class T>
 struct Min<BigUnsigned<n, T>, Zero> {
     using Result = Zero;
 };
 
-template<uint64_t n, class T>
+template<word n, class T>
 struct Min<Zero, BigUnsigned<n, T>> {
     using Result = Zero;
 };
 
-template<uint64_t a_n, uint64_t b_n, class a_T, class b_T>
+template<word a_n, word b_n, class a_T, class b_T>
 struct Max<BigUnsigned<a_n, a_T>, BigUnsigned<b_n, b_T>> {
     using A = BigUnsigned<a_n, a_T>;
     using B = BigUnsigned<b_n, b_T>;
@@ -363,7 +367,7 @@ struct Max<BigUnsigned<a_n, a_T>, BigUnsigned<b_n, b_T>> {
     >::type;
 };
 
-template<uint64_t a_n, uint64_t b_n, class a_T, class b_T>
+template<word a_n, word b_n, class a_T, class b_T>
 struct Min<BigUnsigned<a_n, a_T>, BigUnsigned<b_n, b_T>> {
     using A = BigUnsigned<a_n, a_T>;
     using B = BigUnsigned<b_n, b_T>;
@@ -392,7 +396,7 @@ struct Division<A, Zero> {
     using Residue  = ErrorType;
 };
 
-template<uint64_t n, class T>
+template<word n, class T>
 struct Division<BigUnsigned<n,  T>, One> {
     using Quotient = BigUnsigned<n,  T>;
     using Residue  = Zero;
@@ -404,7 +408,7 @@ struct DummyDivision {
     using Residue  = A;
 };
 
-template<uint64_t a_n, uint64_t b_n, class a_T, class b_T>
+template<word a_n, word b_n, class a_T, class b_T>
 struct Division<BigUnsigned<a_n, a_T>, BigUnsigned<b_n, b_T>> {
 private:
     using A = BigUnsigned<a_n, a_T>;
@@ -448,7 +452,7 @@ struct BigSigned {
     static inline std::string dec(void) {
         return (s < 0 ? "-" : "") + T::dec();
     }
-    static inline void write_to(uint64_t* dest) {
+    static inline void write_to(word* dest) {
         T::write_to(dest);
     }
 };
@@ -464,7 +468,7 @@ template<int s, class T>
 struct Minus<BigSigned<s, T>> {
     using Result = BigSigned<-s, T>;
 };
-template<uint64_t n, class T>
+template<word n, class T>
 struct Minus<BigUnsigned<n, T>> {
     using Result = BigSigned<-1, BigUnsigned<n, T>>;
 };
@@ -474,7 +478,7 @@ struct Minus<BigUnsigned<n, T>> {
 #endif
 
 template<class A> struct Signed;
-template<uint64_t n, class T>
+template<word n, class T>
 struct Signed<BigUnsigned<n, T>> {
     using Result = BigSigned<1, BigUnsigned<n, T>>;
 };
@@ -584,18 +588,18 @@ struct DecimalRepresentation<Zero> {
     }
 };
 
-template<uint64_t n>
+template<word n>
 struct DecimalRepresentation<BigUnsigned<n, Zero>> {
     static inline std::string str(void) {
         return std::to_string(n);
     }
 };
 
-template<uint64_t n, class T>
+template<word n, class T>
 struct DecimalRepresentation<BigUnsigned<n, T>> {
 private:
-    static const uint64_t modulo = 1000000000ULL * 1000000000ULL;
-    static const uint64_t modulo_log = 18;
+    static const word modulo = 1000000000ULL * 1000000000ULL;
+    static const word modulo_log = 18;
     using D = Division<BigUnsigned<n, T>, BIGUNSIGNED_1(modulo)>;
     using Q = typename D::Quotient;
     using R = typename D::Residue;
@@ -673,7 +677,7 @@ public:
         swap, typename Implementation::S, typename Implementation::T>::type;
 };
 
-template<uint64_t a_n, uint64_t b_n, class a_T, class b_T>
+template<word a_n, word b_n, class a_T, class b_T>
 struct EuclideanAlgorithm<BigUnsigned<a_n, a_T>, BigUnsigned<b_n, b_T>> {
     using A = BigUnsigned<a_n, a_T>;
     using B = BigUnsigned<b_n, b_T>;
