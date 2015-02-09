@@ -13,7 +13,7 @@ namespace static_bignum {
 template<class A> struct DecimalRepresentation;
 
 using word = uint64_t;
-static const word WORD_MAX = word(-1);
+static const word WORD_MAX = word(-1); // HACK
 static const size_t bits_per_word = 8 * sizeof(word);
 
 struct Zero {
@@ -477,11 +477,34 @@ struct Minus<BigUnsigned<n, T>> {
 #define SBN_MINUS(x) static_bignum::Minus<x>::Result
 #endif
 
+template<class A> struct Sign;
 template<class A> struct Signed;
+template<class A> struct Unsigned;
 template<word n, class T>
 struct Signed<BigUnsigned<n, T>> {
     using Result = BigSigned<1, BigUnsigned<n, T>>;
 };
+template<int s, class A>
+struct Signed<BigSigned<s, A>> {
+    using Result = BigSigned<s, A>;
+};
+template<word n, class T>
+struct Unsigned<BigUnsigned<n, T>> {
+    using Result = BigUnsigned<n, T>;
+};
+template<int s, class A>
+struct Unsigned<BigSigned<s, A>> {
+    using Result = A;
+};
+template<word n, class T>
+struct Sign<BigUnsigned<n, T>> {
+    static const int value = 1;
+};
+template<int s, class A>
+struct Sign<BigSigned<s, A>> {
+    static const int value = s;
+};
+
 
 using PositiveZero = BigSigned< 1, Zero>;
 using NegativeZero = BigSigned<-1, Zero>;
@@ -690,6 +713,33 @@ public:
     using GCD = typename Implementation::GCD;
     using S   = typename Implementation::S;
     using T   = typename Implementation::T;
+};
+
+template<class A, class N>
+struct SumUpUntilPositive;
+template<bool positive, class A, class N>
+struct SumUpUntilPositiveImplementation;
+
+template<class A, class N>
+struct SumUpUntilPositiveImplementation<true, A, N> {
+    using Result = typename Unsigned<A>::Result;
+};
+template<class A, class N>
+struct SumUpUntilPositiveImplementation<false, A, N> {
+    using Result = typename SumUpUntilPositive<
+        typename Sum<
+            typename Signed<A>::Result,
+            typename Signed<N>::Result
+        >::Result,
+        N
+    >::Result;
+};
+
+template<class A, class N>
+struct SumUpUntilPositive {
+    using Result = typename SumUpUntilPositiveImplementation<
+        (Sign<A>::value > 0), A, N
+    >::Result;
 };
 
 };
