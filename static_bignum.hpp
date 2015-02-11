@@ -339,6 +339,11 @@ struct LessThanOrEqualTo {
     static const bool value = !GreaterThan<A, B>::value;
 };
 
+template<class A, class B>
+struct EqualTo {
+    static const bool value = GreaterThanOrEqualTo<A, B>::value && LessThanOrEqualTo<A, B>::value;
+};
+
 template<class A, class B> struct Max;
 template<class A, class B> struct Min;
 template<> struct Max<Zero, Zero> { using Result = Zero; };
@@ -704,6 +709,12 @@ public:
         swap, typename Implementation::T, typename Implementation::S>::type;
     using T = typename std::conditional<
         swap, typename Implementation::S, typename Implementation::T>::type;
+    static_assert(
+        EqualTo<GCD, typename Sum<
+            typename Product<A, S>::Result,
+            typename Product<B, T>::Result
+        >::Result>::value
+    , "\n\nEuclidean algorithm didn't work correctly\n");
 };
 
 template<word a_n, word b_n, class a_T, class b_T>
