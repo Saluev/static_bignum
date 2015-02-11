@@ -20,8 +20,11 @@ struct Zero {
     static const word digit = 0;
     static const size_t length = 0;
     using Word = word;
-    static inline std::string bin(void) {
+    static inline std::string bin_impl(void) {
         return "";
+    }
+    static inline std::string bin(void) {
+        return "0b0";
     }
     static inline void write_to(word* dest) {
         // no op
@@ -41,9 +44,12 @@ struct BigUnsigned {
     static const size_t length = T::length + 1;
     using Next = T;
     using Word = word;
-    static inline std::string bin(void) {
+    static inline std::string bin_impl(void) {
         std::bitset<bits_per_word> bset(n);
-        return Next::bin() + bset.to_string();
+        return Next::bin_impl() + bset.to_string();
+    }
+    static inline std::string bin(void) {
+        return "0b" + bin_impl();
     }
     static inline std::string dec(void) {
         return DecimalRepresentation<BigUnsigned>::str();
