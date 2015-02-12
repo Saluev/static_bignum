@@ -759,6 +759,6 @@ struct SumUpUntilPositive {
     >::Result;
 };
 
-};
+} // namespace static_bignum
 
 #endif
