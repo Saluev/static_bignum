@@ -761,4 +761,9 @@ struct SumUpUntilPositive {
 
 } // namespace static_bignum
 
+#ifdef STATIC_BIGNUM_USE_MACRO
+#define SBN_MERSENNE_PRIME(pow) \
+    SBN_DIFF(SBN_SHL(static_bignum::One, pow), static_bignum::One)
+#endif
+
 #endif
