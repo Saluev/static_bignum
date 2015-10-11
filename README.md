@@ -55,7 +55,7 @@ signed computations, don't forget to take sign (`X::sign`) into account.
     both unsigned numbers. Produces an error if `Y = 0`.
 * `SBN_SHL(X, n), SBN_SHR(X, n)`: produce `X << n` or `X >> n`. Works with
     either signed or unsigned `X` and `n` small enough for `size_t`.
-* `SBN_GT(x, Y), SBN_GTE(X, Y), SBN_LT(X, Y), SBN_LTE(X, Y)`: produce `true`
+* `SBN_GT(X, Y), SBN_GTE(X, Y), SBN_LT(X, Y), SBN_LTE(X, Y)`: produce `true`
     if corresponding inequality holds. Currently works only with both signed
     or both unsigned numbers.
 
